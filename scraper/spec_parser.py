@@ -1,10 +1,4 @@
-"""
-spec_parser.py
-
-The "reading" part of the scraper.
-It takes the HTML of one phone page and pulls out the specs with BeautifulSoup.
-It never uses the internet, so it's easy to test on the saved pages.
-"""
+"""Parse a GSMArena phone page into a dictionary of specs."""
 
 import re
 
@@ -12,34 +6,25 @@ from bs4 import BeautifulSoup
 
 
 def clean_text(text):
+    """Tidy the " | " separators that replace <br> tags.
+
+    Removes repeated, leading and trailing separators, and keeps benchmark
+    versions attached to their scores, e.g. "1696727 | (v10)" -> "1696727 (v10)".
     """
-    Tidy up the " | " separators we add for <br> line breaks.
-      "UFS 3.1 |"               -> "UFS 3.1"            (pipe at the end)
-      "(v10) | | GeekBench"     -> "(v10) | GeekBench"  (two pipes in a row)
-      "1696727 | (v10)"         -> "1696727 (v10)"      (keep the version next to its score)
-      "Cover camera: | 10 MP"   -> "Cover camera: 10 MP"
-    """
-    text = re.sub(r"(\s*\|\s*)+", " | ", text)   # many pipes in a row -> just one
-    text = text.replace(" | (", " (")             # "(v10)" stays with its number
-    text = text.replace(": | ", ": ")             # nothing between ":" and its value
-    return text.strip(" |")                       # remove pipes at the start or end
+    text = re.sub(r"(\s*\|\s*)+", " | ", text)
+    text = text.replace(" | (", " (")
+    text = text.replace(": | ", ": ")
+    return text.strip(" |")
 
 
 def get_by_data_spec(soup, spec_name):
-    """
-    Many values on GSMArena have a 'data-spec' label, for example:
-        <td class="nfo" data-spec="displaysize">6.1 inches</td>
-    This finds the value by its label. Returns None if it's not on the page.
-    """
+    """Return the text of the element with the given data-spec attribute, or None."""
     tag = soup.find(attrs={"data-spec": spec_name})
     return clean_text(tag.get_text(" ", strip=True)) if tag else None
 
 
 def read_spec_tables(soup):
-    """
-    Read every spec table on the page.
-    Result looks like: {"Display": {"Type": "...", "Size": "..."}, "Battery": {...}}
-    """
+    """Read all spec tables into {category: {spec_name: value}}."""
     all_specs = {}
     specs_list = soup.find("div", id="specs-list")
     if specs_list is None:
@@ -50,7 +35,7 @@ def read_spec_tables(soup):
         if header is None:
             continue
 
-        category = header.get_text(strip=True)   # e.g. "Display"
+        category = header.get_text(strip=True)
         all_specs[category] = {}
         last_key = None
 
@@ -63,8 +48,7 @@ def read_spec_tables(soup):
             key = title_cell.get_text(strip=True) if title_cell else ""
             value = clean_text(value_cell.get_text(" ", strip=True))
 
-            # Some rows have no title. That means the value belongs
-            # to the row above it, so we join them together.
+            # A row without a title continues the previous row.
             if key == "" and last_key:
                 all_specs[category][last_key] += " | " + value
             else:
@@ -76,31 +60,21 @@ def read_spec_tables(soup):
 
 
 def parse_phone(html, url):
-    """Read one phone page and return all its data as a dictionary."""
+    """Return the name, image, key specs and full specs of one phone page."""
     soup = BeautifulSoup(html, "html.parser")
 
-    # In GSMArena's HTML, values inside one cell (like 3 cameras) are separated
-    # by <br> line breaks. We turn each <br> into " | " so the values don't stick together.
+    # Cells with several values (e.g. multiple cameras) separate them with <br>.
     for line_break in soup.find_all("br"):
         line_break.replace_with(" | ")
 
-    # Phone name, e.g. "Samsung Galaxy S23"
     name_tag = soup.find("h1", class_="specs-phone-name-title")
-    name = name_tag.get_text(strip=True) if name_tag else "Unknown"
-
-    # Phone picture
     image_tag = soup.select_one("div.specs-photo-main img")
-    image_url = image_tag["src"] if image_tag else None
-
     all_specs = read_spec_tables(soup)
 
-    # GSMArena runs 2 different battery tests. They can't be compared with each other,
-    # so we keep them separately.
+    # GSMArena's two battery tests use different methods and are not comparable,
+    # so they are stored separately.
     tests = all_specs.get("Our Tests", {})
-    battery_active_use = tests.get("Battery") or tests.get("Battery (new)")   # e.g. "Active use score 11:27h"
-    battery_endurance = tests.get("Battery (old)")                           # e.g. "Endurance rating 93h"
 
-    # The most important specs, kept separately so they're easy to use later
     key_specs = {
         "announced": get_by_data_spec(soup, "year"),
         "status": get_by_data_spec(soup, "status"),
@@ -117,15 +91,15 @@ def parse_phone(html, url):
         "main_camera": get_by_data_spec(soup, "cam1modules"),
         "selfie_camera": get_by_data_spec(soup, "cam2modules"),
         "battery": get_by_data_spec(soup, "batdescription1"),
-        "battery_active_use": battery_active_use,
-        "battery_endurance": battery_endurance,
+        "battery_active_use": tests.get("Battery") or tests.get("Battery (new)"),
+        "battery_endurance": tests.get("Battery (old)"),
         "price": get_by_data_spec(soup, "price"),
     }
 
     return {
-        "name": name,
+        "name": name_tag.get_text(strip=True) if name_tag else "Unknown",
         "url": url,
-        "image_url": image_url,
+        "image_url": image_tag["src"] if image_tag else None,
         "key_specs": key_specs,
         "all_specs": all_specs,
     }

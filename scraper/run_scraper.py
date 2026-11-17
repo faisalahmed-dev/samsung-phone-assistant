@@ -1,14 +1,6 @@
-"""
-run_scraper.py
+"""Scrape specs for 15 Samsung phones from GSMArena and save them to data/phones.json.
 
-Step 1: Collect Samsung phone specs from GSMArena.
-
-This is the main file. It uses the other two:
-  - fetcher.py      -> gets the HTML of each page
-  - spec_parser.py  -> reads the specs out of the HTML
-and saves everything into data/phones.json
-
-Run it from the project folder:
+Usage:
     python -m scraper.run_scraper
 """
 
@@ -18,7 +10,6 @@ import os
 from scraper.fetcher import BASE_URL, get_html
 from scraper.spec_parser import parse_phone
 
-# The 15 phones we want. These are the last part of each phone's GSMArena link.
 PHONE_PAGES = [
     "samsung_galaxy_s21_5g-10626.php",
     "samsung_galaxy_s21_ultra_5g-10596.php",
@@ -46,7 +37,6 @@ def main():
 
     for number, page_name in enumerate(PHONE_PAGES, start=1):
         print(f"[{number}/{len(PHONE_PAGES)}] {page_name}")
-
         html = get_html(page_name)
         if html is None:
             failed.append(page_name)
@@ -54,18 +44,17 @@ def main():
 
         phone = parse_phone(html, BASE_URL + page_name)
         phones.append(phone)
-        print(f"   ✅ {phone['name']} ({len(phone['all_specs'])} spec categories)")
+        print(f"  Parsed {phone['name']} ({len(phone['all_specs'])} spec categories)")
 
-    # Save everything into one JSON file
     os.makedirs("data", exist_ok=True)
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         json.dump(phones, f, indent=2, ensure_ascii=False)
 
-    print(f"\n🎉 Saved {len(phones)} phones to {OUTPUT_FILE}")
+    print(f"\nSaved {len(phones)} phones to {OUTPUT_FILE}")
     if failed:
-        print(f"⚠️ {len(failed)} pages failed. Save them manually and run the script again:")
+        print(f"{len(failed)} page(s) failed. Save them manually and run again:")
         for page in failed:
-            print("   -", page)
+            print(f"  - {page}")
 
 
 if __name__ == "__main__":
