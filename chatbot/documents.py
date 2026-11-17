@@ -19,8 +19,13 @@ from langchain_core.documents import Document
 
 from database.db import get_connection
 
-# Long, rarely asked specs. They would make the context longer without helping answers.
-SKIP_SPECS = {"2G bands", "3G bands", "4G bands", "5G bands", "Speed", "SAR", "SAR EU", "Models"}
+# "Price" is skipped because GSMArena's raw price text can be wrong (e.g. Galaxy A55);
+# the checked prices from the prices table are used instead.
+# "Camera" (in Our Tests) only says "Photo / Video", which was a link on the website.
+SKIP_SPECS = {
+    "2G bands", "3G bands", "4G bands", "5G bands", "Speed",
+    "SAR", "SAR EU", "Models", "Price", "Camera",
+}
 
 
 def fmt(value):
