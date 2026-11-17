@@ -4,3 +4,6 @@ mysql-connector-python
 python-dotenv
 langchain
 langchain-ollama
+langchain-huggingface
+sentence-transformers
+langchain-chroma
