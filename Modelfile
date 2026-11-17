@@ -1,0 +1,4 @@
+# Ollama model for this project: Qwen2.5-3B-Instruct from Hugging Face,
+# with a 4096-token context window (safe for 8 GB of RAM).
+FROM hf.co/Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M
+PARAMETER num_ctx 4096
