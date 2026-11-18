@@ -8,3 +8,5 @@ langchain-huggingface
 sentence-transformers
 langchain-chroma
 crewai[litellm]
+fastapi
+uvicorn[standard]
